@@ -195,6 +195,7 @@
                     window.location.href = "./index.html";
                 },
                 checkPassword() {
+                    return true;
                     const password = '123';
                     let attempts = 3;
                     if (localStorage.getItem('logined') === 'true') {
