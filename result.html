@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>阿嬤血壓結果</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <meta charset="utf-8">
+    <style>
+        table {
+            align-self: center;
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 2rem;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 8px;
+            text-align: left;
+        }
+        .Bt1 {
+            background-color: #4CAF50;
+            border: none;
+            height: 3rem;
+            width: 100%;
+            font-size: x-large;
+            cursor: pointer;
+            
+        }
+        .Bt2 {
+            background-color: #4CAF50;
+            border: none;
+            height: 6rem;
+            margin: 1rem 0;
+            width: 100%;
+            font-size: x-large;
+            cursor: pointer;
+        }
+        #app {
+            height: 95vh;
+            width: 95vw;
+            padding: 1rem;
+            /* display: flex;
+            flex-direction: column;
+            justify-content: start;
+            align-items: start;
+            gap: 1rem; */
+        }
+        h1{
+            font-size: 3rem;
+            text-align: center;
+        }
+        .Modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .ModalContent {
+            width: 60%;
+            background-color: white;
+            display: flex;
+            flex-direction: column;
+            gap: 2rem;
+            padding: 2rem;
+            border-radius: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <h1>阿嬤血壓歷史紀錄</h1>
+        <button @click="changeToRecord" class="Bt2">跳轉到記錄血壓頁面</button>
+        <table>
+            <thead>
+                <tr>
+                    <th>日期</th>
+                    <th>收縮壓</th>
+                    <th>舒張壓</th>
+                    <th>心跳</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr v-for="(record, index) in records" :key="index">
+                    <td contenteditable="true" @input="updateRecord(index, 'Date', $event.target.innerText)" @blur="sendData2">{{ record.Date }}</td>
+                    <td contenteditable="true" @input="updateRecord(index, 'BPH', $event.target.innerText)" @blur="sendData2">{{ record.BPH }}</td>
+                    <td contenteditable="true" @input="updateRecord(index, 'BPL', $event.target.innerText)" @blur="sendData2">{{ record.BPL }}</td>
+                    <td contenteditable="true" @input="updateRecord(index, 'Beat', $event.target.innerText)" @blur="sendData2">{{ record.Beat }}</td>
+                    <td><button @click="() => { this.SelectIndex(); this.Visable(); }  " class="Bt1">刪除</button></td>
+                </tr>
+            </tbody>
+        </table>
+        <button @click="sendData" class="Bt2">送出修改資料</button>
+        <button @click="ToDownload" class="Bt2">下載資料</button>
+        <!-- <button @click="Visable" class="Bt2">顯示Modal</button> -->
+        <div class="Modal" v-if="ModalVisable">
+            <div class="ModalContent">
+                <h1>確定要刪除資料嗎？</h1>
+                <button @click="() => { this.Visable(); this.Nowindex = null }" class="Bt2">取消</button>
+                <button @click="() => { deleteRecord(index); this.Visable() }" class="Bt2">確定</button>
+            </div>
+        </div>
+    </div>
+    <script type="module">
+        const app = Vue.createApp({
+            data() {
+                return {
+                    records: [],
+                    ModalVisable: false,
+                    Nowindex: null
+                };
+            },
+            methods: {
+                SelectIndex(index){
+                    this.Nowindex = index;
+                },
+                Visable(){
+                    this.ModalVisable = !this.ModalVisable;
+                },
+                ToDownload(){
+                    //將csv儲存到blob
+                    // 取得 ./record.csv
+                    this.fetchRecords();
+                    let csv = '日期,收縮壓,舒張壓,心跳\n';
+                    this.records.forEach(record => {
+                        csv += `${record.Date},${record.BPH},${record.BPL},${record.Beat}\n`;
+                    });
+                    let BOM = '\uFEFF';
+                    csv = BOM + csv;
+                    const blob = new Blob([csv], { type: 'text/csv' });
+                    const url = URL.createObjectURL(blob);
+                    //建立a標籤
+                    const a = document.createElement('a');
+                    a.href = url;
+                    // 加入日期 mm/dd
+                    a.download = `blood-pressure-${new Date().toLocaleDateString()}.csv`;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                },
+                fetchRecords() {
+                    axios.get('./api.php')
+                        .then(response => {
+                            this.records = response.data;
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                updateRecord(index, key, value) {
+                    this.records[index][key] = value;
+                },
+                deleteRecord(index) {
+                    this.records.splice(index, 1);
+                    this.sendData2();
+                    this.Nowindex = null;
+                },
+                sendData() {
+                    axios.post('./api.php', this.records, {
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        alert('更新成功');
+                        //refresh
+                        window.location.reload();
+                    })
+                    .catch(error => {
+                        alert('更新失敗');
+                        console.log(error);
+                    });
+                },
+                sendData2() {
+                    axios.post('./api.php', this.records, {
+                        headers: {
+                            'Content-Type': 'application/json'
+                        }
+                    })
+                    .then(response => {
+                        //refresh
+                        this.fetchRecords();
+                    })
+                    .catch(error => {
+                        alert('更新失敗');
+                        console.log(error);
+                        this.fetchRecords();
+                    });
+                },
+                changeToRecord() {
+                    window.location.href = "./index.html";
+                },
+                checkPassword() {
+                    const password = '123';
+                    let attempts = 3;
+                    if (localStorage.getItem('logined') === 'true') {
+                        this.fetchRecords();
+                    } else {
+                        let input = prompt('請輸入密碼');
+                        if (input === password) {
+                            localStorage.setItem('logined', 'true');
+                            this.fetchRecords();
+                        } else {
+                            attempts--;
+                            alert(`密碼錯誤，還有${attempts}次機會`);
+                            if (attempts === 0) {
+                                alert('錯誤次數過多，請重新整理頁面');
+                            }
+                        }
+                    }
+                }
+            },
+            mounted() {
+                this.checkPassword();
+                this.fetchRecords();
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>

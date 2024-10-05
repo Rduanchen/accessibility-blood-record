@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>無障礙血壓紀錄系統</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;  /* 改為靠上對齊 */
+            flex-direction: column;
+            min-height: 85vh;
+            width: 100vw;
+            font-weight: 800;
+            font-family: '微軟正黑體', sans-serif;
+        }
+        header {
+            width: 100%;
+            background-color: #8ecae6;
+            display: inline-block;
+        }
+        header h1 {
+            color: black;
+        }
+        #app {
+            width: 100%;
+            height: 100%;
+            padding: 0 1rem;
+        }
+        @media screen and (max-width: 768px) { 
+            .Container1 {
+                display: grid;
+                grid-template-rows: repeat(8, 1fr);  /* 三等分 */
+                gap: 1rem;  /* 減小間距 */ 
+            }
+            input{
+                font-size: 5rem;  /* 減小字體大小 */
+            }
+        }
+        .Container1 {
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start; 
+            align-items: center;
+            gap: 1rem;  /* 添加間距 */
+            height: 80vh;
+        }
+        input {
+            width: 100%;
+            height: 6rem;  /* 固定高度 */
+            font-size: 1.5rem;  /* 減小字體大小 */
+            border-radius: 10px;
+            text-align: center;
+        }
+        button {
+            width: 100%;
+            height: 5rem; 
+            background-color: #ffb703;
+            border-radius: 10px;
+            font-size: 1.5rem;
+            border: solid 1px #023047;
+        }
+        h1 {
+            font-size: 2rem;  
+            margin: 0.5rem 0;  
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid #023047;
+            padding: 0.5rem;
+        }
+        .Posted p {
+            font-size: 2rem;
+            color: #023047;
+            text-align: center;
+            margin-top: 2rem;
+        }
+        h5{
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1 onclick="location.reload()" style="cursor: pointer;">無障礙血壓紀錄系統</h1>
+    </header>
+    <div id="app">
+        <!-- v-if="isContainerVisible" -->
+        <div class="Container1" v-if="isContainerVisible"> 
+            <h1>收縮壓</h1>
+            <input type="number" v-model="BPH">
+            <p v-if="BPHWarn" class="Warn">{{ BPHWarn }}</p>
+            <h1>舒張壓</h1>
+            <input type="number" v-model="BPL">
+            <p v-if="BPLWarn" class="Warn">{{ BPLWarn }}</p>
+            <h1>脈搏</h1>
+            <input type="number" v-model="Pulse">
+            <p v-if="PulseWarn" class="Warn">{{ PulseWarn }}</p>
+            <button class="" @click="send" type="submit">送出</button>
+            <button class="" @click="changeToView">查看紀錄</button>
+        </div>
+        <!-- v-if="isPostedVisible" -->
+        <div class="Posted" v-if="isPostedVisible">
+            <p>血壓紀錄已經送出</p>            
+            <div class="Container" id="historyContainer" v-if="isHistoryVisible">
+                <h1>最近十筆血壓紀錄</h1>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>日期</th>
+                            <th>收縮壓</th>
+                            <th>舒張壓</th>
+                            <th>心跳</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr v-for="record in recentRecords" :key="record.Date">
+                            <td>{{ record.Date }}</td>
+                            <td>{{ record.BPH }}</td>
+                            <td>{{ record.BPL }}</td>
+                            <td>{{ record.Beat }}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <button class="" @click="BackToMain">返回</button>
+            <button class="" @click="changeToView">查看紀錄</button>
+        </div>
+    </div>
+    <script>
+        const { createApp } = Vue
+        let app = createApp({
+            data() {
+                return {
+                    Pre :[],
+                    BPH: '',
+                    BPL: '',
+                    Pulse: '',
+                    BPHWarn: '',
+                    BPLWarn: '',
+                    PulseWarn: '',
+                    isContainerVisible: false,
+                    isPostedVisible: false,
+                    isHistoryVisible: false,
+                    recentRecords: []
+                }
+            },
+            methods: {
+                check() {
+                    this.BPHWarn = this.BPH === '' ? '請填入收縮壓' : '';
+                    this.BPLWarn = this.BPL === '' ? '請填入舒張壓' : '';
+                    this.PulseWarn = this.Pulse === '' ? '請填入脈搏' : '';
+                    return this.BPH !== '' && this.BPL !== '' && this.Pulse !== '';
+                },
+                send() {
+                    if (!this.check()) return;
+                    console.log(`./fill_api.php?Date=${new Date().toLocaleString()}&BPH=${this.BPH}&BPL=${this.BPL}&Pulse=${this.Pulse}`)
+                    axios.get(`./fill_api.php?Date=${new Date().toLocaleString()}&BPH=${this.BPH}&BPL=${this.BPL}&Pulse=${this.Pulse}`)
+                        .then(response => {
+                            this.Pre = [[new Date().toLocaleString(),this.BPH,this.BPL,this.Pulse]];
+                            console.log(response);
+                            this.containerDisappear();
+                            this.inFinish();
+                            // setTimeout(() => {
+                            //     this.containerAppear();
+                            //     this.fetchRecentRecords();
+                            // }, 10000);
+                            this.BPH = '';
+                            this.BPL = '';
+                            this.Pulse = '';
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                BackToMain(){
+                    this.isPostedVisible = false;
+                    this.isContainerVisible = true;
+                    this.containerAppear();
+                    this.fetchRecentRecords();
+                },
+                inFinish() {
+                    this.isPostedVisible = true;
+                    this.isContainerVisible = false;
+                    this.fetchRecentRecords();
+                    // setTimeout(() => {
+                    //     this.isPostedVisible = false;
+                    //     this.isContainerVisible = true;
+                    // }, 10000);
+                },
+                containerDisappear() {
+                    this.isContainerVisible = false;
+                },
+                containerAppear() {
+                    this.isContainerVisible = true;
+                },
+                changeToView() {
+                    window.location.href = "./result.html";
+                },
+                fetchRecentRecords() {
+                    axios.get('./api.php')
+                        .then(response => {
+                            const data = response.data;
+                            this.recentRecords = data.reverse().slice(-10);
+                            this.recentRecords - this.recentRecords.reverse();
+                            this.isHistoryVisible = true;
+                        })
+                        .catch(error => {
+                            console.log(error);
+                        });
+                },
+                checkPassword() {
+                    const password = '123';
+                    let attempts = 3;
+
+                    if (localStorage.getItem('logined') === 'true') {
+                        this.containerAppear();
+                    } else {
+                        let input = prompt('請輸入密碼');
+                        if (input === password) {
+                            localStorage.setItem('logined', 'true');
+                            this.containerAppear();
+                        } else {
+                            attempts--;
+                            alert(`密碼錯誤，還有${attempts}次機會`);
+                            if (attempts === 0) {
+                                alert('錯誤次數過多，請重新整理頁面');
+                            }
+                        }
+                    }
+                }
+            },
+            created() {
+                this.checkPassword();
+                this.fetchRecentRecords();
+            }
+        });
+        app.mount('#app');
+    </script>
+</body>
+</html>
